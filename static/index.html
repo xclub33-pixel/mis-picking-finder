@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mis-Picking Finder</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --danger: #ef4444;
+            --success: #22c55e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            padding: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+
+        header {
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: var(--accent-color);
+            margin-bottom: 8px;
+        }
+
+        .search-container {
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 2px solid var(--accent-color);
+            background: var(--card-bg);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
+        }
+
+        .product-list {
+            margin-top: 20px;
+        }
+
+        .product-card {
+            background: var(--card-bg);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            border-left: 4px solid var(--accent-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .product-card:active {
+            transform: scale(0.98);
+            background: #2d3e5a;
+        }
+
+        .product-name {
+            font-weight: 600;
+            font-size: 1rem;
+            flex: 1;
+            margin-right: 12px;
+        }
+
+        .total-qty {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        /* Detail Modal Overlay */
+        #detail-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 200;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 40px;
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .close-btn {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .detail-item {
+            display: grid;
+            grid-template-columns: 1fr 60px 80px;
+            border-bottom: 1px solid #334155;
+            padding: 12px 0;
+            align-items: center;
+        }
+
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .detail-header {
+            font-weight: bold;
+            color: var(--accent-color);
+            font-size: 0.85rem;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 6px;
+        }
+
+        .store-name { font-weight: 600; }
+        .qty-val { text-align: center; color: var(--success); font-weight: bold; }
+        .vehicle-name { text-align: right; color: var(--text-secondary); font-size: 0.9rem; }
+
+        .loading {
+            text-align: center;
+            margin-top: 50px;
+            color: var(--text-secondary);
+        }
+
+        .empty-msg {
+            text-align: center;
+            margin-top: 50px;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Mis-Picking Finder</h1>
+    <p id="server-info" style="font-size: 0.8rem; color: var(--text-secondary);">데이터 로딩 중...</p>
+    <button id="upload-btn" onclick="openUpload()" style="margin-top:10px; background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">데이터 업로드 (PC)</button>
+</header>
+
+<div id="upload-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:500; padding:20px;">
+    <div class="modal-content" style="margin-top:100px;">
+        <div class="modal-header">
+            <h3>데이터 업로드 (.xlsx)</h3>
+            <span class="close-btn" onclick="closeUpload()">&times;</span>
+        </div>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;">'사용자정의주문현황.xlsx' 파일을 선택하세요.</p>
+        <input type="file" id="file-input" accept=".xlsx, .xls" style="margin-bottom: 20px;">
+        <button onclick="handleUpload()" style="width:100%; padding:12px; background: var(--success); color: white; border:none; border-radius: 8px; font-weight:bold;">업로드 시작</button>
+        <p id="upload-status" style="margin-top:15px; font-size: 0.85rem; text-align:center;"></p>
+    </div>
+</div>
+
+<div class="search-container">
+    <input type="text" id="search-input" placeholder="상품명을 입력하세요..." autocomplete="off">
+</div>
+
+<div id="product-list" class="product-list">
+    <!-- Products will be listed here -->
+</div>
+
+<div id="detail-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <h2 id="modal-product-name" style="font-size: 1.1rem; color: var(--accent-color);"></h2>
+                <p id="modal-total-info" style="font-size: 0.85rem; color: var(--text-secondary); margin-top:4px;"></p>
+            </div>
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+        </div>
+        
+        <div class="detail-item detail-header">
+            <div>점포명</div>
+            <div style="text-align: center;">수량</div>
+            <div style="text-align: right;">차량</div>
+        </div>
+        
+        <div id="detail-list">
+            <!-- Details will be listed here -->
+        </div>
+    </div>
+</div>
+
+<script>
+    let allProducts = [];
+    const searchInput = document.getElementById('search-input');
+    const productList = document.getElementById('product-list');
+    const detailModal = document.getElementById('detail-modal');
+    const detailList = document.getElementById('detail-list');
+
+    async function init() {
+        try {
+            const infoRes = await fetch('/api/info');
+            const info = await infoRes.json();
+            document.getElementById('server-info').innerText = `${info.date} 데이터 | 총 ${info.rows}개 로드됨 (${info.ip})`;
+
+            const res = await fetch('/api/products');
+            allProducts = await res.json();
+            allProducts.sort((a, b) => b.qty - a.qty); // Popular first? Or alphabetical?
+            
+            renderProducts(allProducts);
+        } catch (e) {
+            console.error(e);
+            productList.innerHTML = '<p class="empty-msg">데이터를 불러오지 못했습니다.</p>';
+        }
+    }
+
+    function renderProducts(products) {
+        productList.innerHTML = '';
+        if (products.length === 0) {
+            productList.innerHTML = '<p class="empty-msg">검색 결과가 없습니다.</p>';
+            return;
+        }
+
+        products.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.innerHTML = `
+                <div class="product-name">${p.product}</div>
+                <div class="total-qty">${p.qty}</div>
+            `;
+            card.onclick = () => showDetails(p.product, p.qty);
+            productList.appendChild(card);
+        });
+    }
+
+    async function showDetails(productName, totalQty) {
+        document.getElementById('modal-product-name').innerText = productName;
+        document.getElementById('modal-total-info').innerText = `총 수량: ${totalQty}`;
+        detailList.innerHTML = '<div class="loading">로딩 중...</div>';
+        detailModal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+
+        try {
+            const res = await fetch(`/api/details?name=${encodeURIComponent(productName)}`);
+            const details = await res.json();
+            
+            detailList.innerHTML = '';
+            details.forEach(d => {
+                const item = document.createElement('div');
+                item.className = 'detail-item';
+                item.innerHTML = `
+                    <div class="store-name">${d.store}</div>
+                    <div class="qty-val">${d.qty}</div>
+                    <div class="vehicle-name">${d.vehicle || '-'}</div>
+                `;
+                detailList.appendChild(item);
+            });
+        } catch (e) {
+            detailList.innerHTML = '<p class="empty-msg">상세 정보를 불러오지 못했습니다.</p>';
+        }
+    }
+
+    function closeModal() {
+        detailModal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    // Upload Functions
+    function openUpload() {
+        document.getElementById('upload-modal').style.display = 'block';
+    }
+
+    function closeUpload() {
+        document.getElementById('upload-modal').style.display = 'none';
+        document.getElementById('upload-status').innerText = '';
+    }
+
+    async function handleUpload() {
+        const fileInput = document.getElementById('file-input');
+        const status = document.getElementById('upload-status');
+        
+        if (fileInput.files.length === 0) {
+            status.innerText = '파일을 선택해주세요.';
+            status.style.color = 'var(--danger)';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        status.innerText = '업로드 중...';
+        status.style.color = 'var(--accent-color)';
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                status.innerText = `성공! ${data.rows}개 데이터 로드됨.`;
+                status.style.color = 'var(--success)';
+                setTimeout(() => {
+                    closeUpload();
+                    init(); // Reload list
+                }, 1500);
+            } else {
+                status.innerText = `실패: ${data.detail}`;
+                status.style.color = 'var(--danger)';
+            }
+        } catch (e) {
+            status.innerText = '오류가 발생했습니다.';
+            status.style.color = 'var(--danger)';
+        }
+    }
+
+    searchInput.oninput = (e) => {
+        const val = e.target.value.toLowerCase();
+        const filtered = allProducts.filter(p => p.product.toLowerCase().includes(val));
+        renderProducts(filtered);
+    };
+
+    // Close modal on outside click
+    window.onclick = (e) => {
+        if (e.target == detailModal) closeModal();
+    };
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js');
+    }
+
+    init();
+</script>
+
+</body>
+</html>
