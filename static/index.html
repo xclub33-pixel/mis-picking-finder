@@ -182,9 +182,9 @@
 <header>
     <h1>Mis-Picking Finder</h1>
     <p id="server-info" style="font-size: 0.8rem; color: var(--text-secondary);">데이터 로딩 중...</p>
-    <div style="margin-top:10px; display: flex; justify-content: center; gap: 8px;">
-        <button id="upload-btn" onclick="openUpload()" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">데이터 업로드 (PC)</button>
-        <button id="delete-btn" onclick="deleteRecords()" style="background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">현재 기록 삭제</button>
+    <div id="admin-controls" style="margin-top:10px; display: flex; justify-content: center; gap: 8px;">
+        <button id="upload-btn" onclick="openUpload()" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">데이터 업로드 (PC전용)</button>
+        <button id="delete-btn" onclick="deleteRecords()" style="background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">기록 삭제 (PC전용)</button>
     </div>
 </header>
 
@@ -232,6 +232,12 @@
 </div>
 
 <script>
+    // Hide upload and delete buttons on mobile devices
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+        document.getElementById('admin-controls').style.display = 'none';
+    }
+
     let allProducts = [];
     const searchInput = document.getElementById('search-input');
     const productList = document.getElementById('product-list');
