@@ -60,6 +60,14 @@ def load_data():
         
         # Clean data
         processed_df = processed_df.dropna(subset=['product', 'store'])
+        
+        # Ensure qty is numeric before doing math
+        processed_df['qty'] = pd.to_numeric(processed_df['qty'], errors='coerce').fillna(0)
+        
+        # Convert quantity to Box (divide by 20) for specific meat products
+        mask = processed_df['product'].str.contains('삼겹양지|목심|설도', na=False, regex=True)
+        processed_df.loc[mask, 'qty'] = processed_df.loc[mask, 'qty'] / 20
+        
         # Filter out 0 or negative quantities if they exist
         processed_df = processed_df[processed_df['qty'] > 0]
         
@@ -84,11 +92,28 @@ async def upload_file(file: UploadFile = File(...)):
         
         # Reload data
         load_data()
-        return {"filename": file.filename, "rows": len(df_data)}
+        rows_loaded = len(df_data) if df_data is not None else 0
+        return {"filename": file.filename, "rows": rows_loaded}
     except PermissionError:
         raise HTTPException(status_code=500, detail="파일이 다른 프로그램(엑셀 등)에서 열려 있습니다. 닫고 다시 시도해주세요.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"업로드 중 오류 발생: {str(e)}")
+
+@app.post("/api/delete")
+async def delete_records():
+    global df_data, delivery_date
+    df_data = None
+    delivery_date = "N/A"
+    
+    if os.path.exists(EXCEL_FILE):
+        try:
+            os.remove(EXCEL_FILE)
+        except PermissionError:
+            raise HTTPException(status_code=500, detail="파일이 다른 프로그램에서 열려 있어 삭제할 수 없습니다.")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"파일 삭제 오류: {str(e)}")
+            
+    return {"success": True, "message": "모든 기록이 삭제되었습니다."}
 
 @app.get("/api/products")
 async def get_products():

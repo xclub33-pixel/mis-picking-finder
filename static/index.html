@@ -182,7 +182,10 @@
 <header>
     <h1>Mis-Picking Finder</h1>
     <p id="server-info" style="font-size: 0.8rem; color: var(--text-secondary);">데이터 로딩 중...</p>
-    <button id="upload-btn" onclick="openUpload()" style="margin-top:10px; background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">데이터 업로드 (PC)</button>
+    <div style="margin-top:10px; display: flex; justify-content: center; gap: 8px;">
+        <button id="upload-btn" onclick="openUpload()" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">데이터 업로드 (PC)</button>
+        <button id="delete-btn" onclick="deleteRecords()" style="background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">현재 기록 삭제</button>
+    </div>
 </header>
 
 <div id="upload-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:500; padding:20px;">
@@ -358,6 +361,23 @@
         const filtered = allProducts.filter(p => p.product.toLowerCase().includes(val));
         renderProducts(filtered);
     };
+
+    async function deleteRecords() {
+        if (!confirm("현재 로드된 모든 기록(업로드된 엑셀 데이터)을 완전히 삭제하시겠습니까?")) return;
+        
+        try {
+            const res = await fetch('/api/delete', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert("기록이 성공적으로 삭제되었습니다.");
+                init(); // Reload
+            } else {
+                alert("삭제 실패: " + (data.detail || data.message));
+            }
+        } catch (e) {
+            alert("오류가 발생했습니다.");
+        }
+    }
 
     // Close modal on outside click
     window.onclick = (e) => {
