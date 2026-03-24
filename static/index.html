@@ -175,6 +175,59 @@
             margin-top: 50px;
             color: var(--text-secondary);
         }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            border: 2px solid #334155;
+            padding: 10px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+
+        .tab-btn.active {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            border-color: var(--accent-color);
+        }
+
+        .sub-tabs {
+            display: none;
+            gap: 8px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            white-space: nowrap;
+            scrollbar-width: none;
+        }
+        .sub-tabs::-webkit-scrollbar { display: none; }
+
+        .sub-tab-btn {
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            border: 1px solid #334155;
+            padding: 6px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .sub-tab-btn.active {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            border-color: var(--accent-color);
+        }
     </style>
 </head>
 <body>
@@ -194,11 +247,30 @@
             <h3>데이터 업로드 (.xlsx)</h3>
             <span class="close-btn" onclick="closeUpload()">&times;</span>
         </div>
-        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;">'사용자정의주문현황.xlsx' 파일을 선택하세요.</p>
+        <div style="margin-bottom: 15px; display: flex; gap: 15px;">
+            <label><input type="radio" name="upload-region" value="capital" checked> 수도권</label>
+            <label><input type="radio" name="upload-region" value="province"> 지방</label>
+        </div>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;">업로드할 엑셀 파일(.xlsx)을 선택하세요. (파일명은 무관합니다)</p>
         <input type="file" id="file-input" accept=".xlsx, .xls" style="margin-bottom: 20px;">
         <button onclick="handleUpload()" style="width:100%; padding:12px; background: var(--success); color: white; border:none; border-radius: 8px; font-weight:bold;">업로드 시작</button>
         <p id="upload-status" style="margin-top:15px; font-size: 0.85rem; text-align:center;"></p>
     </div>
+</div>
+
+<div class="tabs">
+    <div class="tab-btn active" onclick="setRegion('capital')">수도권</div>
+    <div class="tab-btn" onclick="setRegion('province')">지방</div>
+</div>
+
+<div class="sub-tabs" id="sub-tabs-container">
+    <div class="sub-tab-btn active" onclick="setSubRegion('전체')">전체</div>
+    <div class="sub-tab-btn" onclick="setSubRegion('김해')">김해</div>
+    <div class="sub-tab-btn" onclick="setSubRegion('왜관')">왜관</div>
+    <div class="sub-tab-btn" onclick="setSubRegion('광주')">광주</div>
+    <div class="sub-tab-btn" onclick="setSubRegion('제주')">제주</div>
+    <div class="sub-tab-btn" onclick="setSubRegion('익산')">익산</div>
+    <div class="sub-tab-btn" onclick="setSubRegion('강원')">강원</div>
 </div>
 
 <div class="search-container">
@@ -239,6 +311,8 @@
     }
 
     let allProducts = [];
+    let currentRegion = 'capital';
+    let currentSubRegion = '전체';
     const searchInput = document.getElementById('search-input');
     const productList = document.getElementById('product-list');
     const detailModal = document.getElementById('detail-modal');
@@ -246,19 +320,62 @@
 
     async function init() {
         try {
-            const infoRes = await fetch('/api/info');
+            const infoRes = await fetch(`/api/info?region=${currentRegion}`);
             const info = await infoRes.json();
             document.getElementById('server-info').innerText = `${info.date} 데이터 | 총 ${info.rows}개 로드됨 (${info.ip})`;
 
-            const res = await fetch('/api/products');
+            const res = await fetch(`/api/products?region=${currentRegion}&sub_region=${encodeURIComponent(currentSubRegion)}`);
             allProducts = await res.json();
-            allProducts.sort((a, b) => b.qty - a.qty); // Popular first? Or alphabetical?
+            allProducts.sort((a, b) => b.qty - a.qty); 
             
-            renderProducts(allProducts);
+            // Reapply search filter
+            const val = searchInput.value.toLowerCase();
+            if (val) {
+                const filtered = allProducts.filter(p => p.product.toLowerCase().includes(val));
+                renderProducts(filtered);
+            } else {
+                renderProducts(allProducts);
+            }
         } catch (e) {
             console.error(e);
             productList.innerHTML = '<p class="empty-msg">데이터를 불러오지 못했습니다.</p>';
         }
+    }
+
+    function setRegion(region) {
+        if (currentRegion === region) return;
+        currentRegion = region;
+        
+        // Update Tabs UI
+        const tabs = document.querySelectorAll('.tab-btn');
+        tabs[0].classList.toggle('active', region === 'capital');
+        tabs[1].classList.toggle('active', region === 'province');
+        
+        // Show/Hide sub-tabs
+        const subTabsContainer = document.getElementById('sub-tabs-container');
+        if (region === 'province') {
+            subTabsContainer.style.display = 'flex';
+        } else {
+            subTabsContainer.style.display = 'none';
+            // Reset sub-region when switching back to capital
+            setSubRegionUI('전체');
+            currentSubRegion = '전체';
+        }
+        
+        init();
+    }
+
+    function setSubRegion(subRegion) {
+        if (currentSubRegion === subRegion) return;
+        currentSubRegion = subRegion;
+        setSubRegionUI(subRegion);
+        init();
+    }
+
+    function setSubRegionUI(subRegion) {
+        document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.innerText.trim() === subRegion);
+        });
     }
 
     function renderProducts(products) {
@@ -288,7 +405,7 @@
         document.body.style.overflow = 'hidden';
 
         try {
-            const res = await fetch(`/api/details?name=${encodeURIComponent(productName)}`);
+            const res = await fetch(`/api/details?name=${encodeURIComponent(productName)}&region=${currentRegion}&sub_region=${encodeURIComponent(currentSubRegion)}`);
             const details = await res.json();
             
             detailList.innerHTML = '';
@@ -325,6 +442,7 @@
     async function handleUpload() {
         const fileInput = document.getElementById('file-input');
         const status = document.getElementById('upload-status');
+        const uploadRegion = document.querySelector('input[name="upload-region"]:checked').value;
         
         if (fileInput.files.length === 0) {
             status.innerText = '파일을 선택해주세요.';
@@ -339,18 +457,20 @@
         status.style.color = 'var(--accent-color)';
 
         try {
-            const res = await fetch('/api/upload', {
+            const res = await fetch(`/api/upload?region=${uploadRegion}`, {
                 method: 'POST',
                 body: formData
             });
             const data = await res.json();
 
             if (res.ok) {
-                status.innerText = `성공! ${data.rows}개 데이터 로드됨.`;
+                status.innerText = `성공! ${data.rows}개 데이터 로드됨 (${uploadRegion}).`;
                 status.style.color = 'var(--success)';
                 setTimeout(() => {
                     closeUpload();
-                    init(); // Reload list
+                    if (currentRegion === uploadRegion) {
+                        init(); // Reload list
+                    }
                 }, 1500);
             } else {
                 status.innerText = `실패: ${data.detail}`;
@@ -369,10 +489,10 @@
     };
 
     async function deleteRecords() {
-        if (!confirm("현재 로드된 모든 기록(업로드된 엑셀 데이터)을 완전히 삭제하시겠습니까?")) return;
+        if (!confirm(`현재 선택된 [${currentRegion === 'capital' ? '수도권' : '지방'}] 기록을 완전히 삭제하시겠습니까?`)) return;
         
         try {
-            const res = await fetch('/api/delete', { method: 'POST' });
+            const res = await fetch(`/api/delete?region=${currentRegion}`, { method: 'POST' });
             const data = await res.json();
             if (res.ok && data.success) {
                 alert("기록이 성공적으로 삭제되었습니다.");
