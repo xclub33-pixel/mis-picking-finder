@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mis-Picking Finder</title>
+    <title>미스피킹 파인더 - 오배송 방지 툴</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" href="/icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap" rel="stylesheet">
@@ -233,11 +233,14 @@
 <body>
 
 <header>
-    <h1>Mis-Picking Finder</h1>
-    <p id="server-info" style="font-size: 0.8rem; color: var(--text-secondary);">데이터 로딩 중...</p>
+    <h1>미스피킹 파인더</h1>
+    <div id="status-container" style="background: rgba(56, 189, 248, 0.1); padding: 10px; border-radius: 12px; margin-top: 10px;">
+        <p id="server-info" style="font-size: 0.85rem; color: var(--text-primary); font-weight: 600;">데이터 로딩 중...</p>
+        <p id="file-info" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;"></p>
+    </div>
     <div id="admin-controls" style="margin-top:10px; display: flex; justify-content: center; gap: 8px;">
-        <button id="upload-btn" onclick="openUpload()" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">데이터 업로드 (PC전용)</button>
-        <button id="delete-btn" onclick="deleteRecords()" style="background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">기록 삭제 (PC전용)</button>
+        <button id="upload-btn" onclick="openUpload()" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">데이터 업로드</button>
+        <button id="delete-btn" onclick="deleteRecords()" style="background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 5px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">기록 삭제</button>
     </div>
 </header>
 
@@ -286,7 +289,10 @@
         <div class="modal-header">
             <div>
                 <h2 id="modal-product-name" style="font-size: 1.1rem; color: var(--accent-color);"></h2>
-                <p id="modal-total-info" style="font-size: 0.85rem; color: var(--text-secondary); margin-top:4px;"></p>
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+                    <p id="modal-total-info" style="font-size: 0.85rem; color: var(--text-secondary);"></p>
+                    <button id="copy-summary-btn" onclick="copyDetailToClipboard()" style="background: var(--accent-color); color: var(--bg-color); border:none; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer;">내역 복사</button>
+                </div>
             </div>
             <span class="close-btn" onclick="closeModal()">&times;</span>
         </div>
@@ -322,7 +328,10 @@
         try {
             const infoRes = await fetch(`/api/info?region=${currentRegion}`);
             const info = await infoRes.json();
-            document.getElementById('server-info').innerText = `${info.date} 데이터 | 총 ${info.rows}개 로드됨 (${info.ip})`;
+            
+            const regionName = currentRegion === 'capital' ? '수도권' : '지방';
+            document.getElementById('server-info').innerText = `${regionName} 출고일: ${info.date} (${info.rows}건)`;
+            document.getElementById('file-info').innerText = `마지막 업데이트: ${info.mtime} (서버: ${info.ip})`;
 
             const res = await fetch(`/api/products?region=${currentRegion}&sub_region=${encodeURIComponent(currentSubRegion)}`);
             allProducts = await res.json();
@@ -427,6 +436,34 @@
     function closeModal() {
         detailModal.style.display = 'none';
         document.body.style.overflow = 'auto';
+    }
+
+    async function copyDetailToClipboard() {
+        const productName = document.getElementById('modal-product-name').innerText;
+        const totalInfo = document.getElementById('modal-total-info').innerText;
+        const rows = Array.from(detailList.querySelectorAll('.detail-item'));
+        
+        let text = `[미스피킹 파인더]\n상품: ${productName}\n${totalInfo}\n\n`;
+        rows.forEach(row => {
+            const store = row.querySelector('.store-name').innerText;
+            const qty = row.querySelector('.qty-val').innerText;
+            const vehicle = row.querySelector('.vehicle-name').innerText;
+            text += `- ${store}: ${qty}개 (${vehicle})\n`;
+        });
+        
+        try {
+            await navigator.clipboard.writeText(text);
+            const btn = document.getElementById('copy-summary-btn');
+            const originalText = btn.innerText;
+            btn.innerText = '복사 완료!';
+            btn.style.background = 'var(--success)';
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.background = 'var(--accent-color)';
+            }, 2000);
+        } catch (err) {
+            alert('복사 실패: ' + err);
+        }
     }
 
     // Upload Functions

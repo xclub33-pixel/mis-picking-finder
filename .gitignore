@@ -1,3 +1,12 @@
 *.xlsx
 *.xls
 __pycache__/
+*.pyc
+picking_data.db
+sync_to_supabase.py
+test_supabase.py
+test_supabase_rest.py
+diag.py
+cloudflared.exe
+run_with_tunnel.py
+run_public_app.bat

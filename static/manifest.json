@@ -1,7 +1,7 @@
 {
-  "name": "Mis-Picking Finder",
-  "short_name": "MP Finder",
-  "description": "Logistics Mis-Picking Finder Tool",
+  "name": "미스피킹 파인더",
+  "short_name": "미스피킹 파인더",
+  "description": "오배송 방지를 위한 물류 피킹 확인 툴",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
