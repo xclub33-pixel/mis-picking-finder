@@ -228,6 +228,37 @@
             color: var(--bg-color);
             border-color: var(--accent-color);
         }
+
+        .sort-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .sort-btn {
+            flex: 1;
+            min-width: 70px;
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            border: 1px solid #334155;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .sort-btn:active {
+            transform: scale(0.95);
+        }
+
+        .sort-btn.active {
+            background: var(--accent-color);
+            color: var(--bg-color);
+            border-color: var(--accent-color);
+        }
     </style>
 </head>
 <body>
@@ -297,12 +328,18 @@
             <span class="close-btn" onclick="closeModal()">&times;</span>
         </div>
         
+        <div class="sort-buttons">
+            <button class="sort-btn active" onclick="sortDetails('store')">점포명 ↑</button>
+            <button class="sort-btn" onclick="sortDetails('qty')">수량 ↑</button>
+            <button class="sort-btn" onclick="sortDetails('vehicle')">차량 ↑</button>
+        </div>
+
         <div class="detail-item detail-header">
             <div>점포명</div>
             <div style="text-align: center;">수량</div>
             <div style="text-align: right;">차량</div>
         </div>
-        
+
         <div id="detail-list">
             <!-- Details will be listed here -->
         </div>
@@ -319,6 +356,9 @@
     let allProducts = [];
     let currentRegion = 'capital';
     let currentSubRegion = '전체';
+    let currentDetails = [];
+    let currentSort = 'store';
+    let sortAscending = true;
     const searchInput = document.getElementById('search-input');
     const productList = document.getElementById('product-list');
     const detailModal = document.getElementById('detail-modal');
@@ -413,24 +453,85 @@
         detailModal.style.display = 'block';
         document.body.style.overflow = 'hidden';
 
+        // Reset sort state
+        currentSort = 'store';
+        sortAscending = true;
+        updateSortButtons();
+
         try {
             const res = await fetch(`/api/details?name=${encodeURIComponent(productName)}&region=${currentRegion}&sub_region=${encodeURIComponent(currentSubRegion)}`);
-            const details = await res.json();
-            
-            detailList.innerHTML = '';
-            details.forEach(d => {
-                const item = document.createElement('div');
-                item.className = 'detail-item';
-                item.innerHTML = `
-                    <div class="store-name">${d.store}</div>
-                    <div class="qty-val">${d.qty}</div>
-                    <div class="vehicle-name">${d.vehicle || '-'}</div>
-                `;
-                detailList.appendChild(item);
-            });
+            currentDetails = await res.json();
+            renderDetailList();
         } catch (e) {
             detailList.innerHTML = '<p class="empty-msg">상세 정보를 불러오지 못했습니다.</p>';
         }
+    }
+
+    function sortDetails(sortBy) {
+        // Toggle ascending/descending if same button clicked
+        if (currentSort === sortBy) {
+            sortAscending = !sortAscending;
+        } else {
+            currentSort = sortBy;
+            sortAscending = true;
+        }
+        updateSortButtons();
+        renderDetailList();
+    }
+
+    function renderDetailList() {
+        detailList.innerHTML = '';
+
+        let sorted = [...currentDetails];
+
+        // Sort by the selected column
+        if (currentSort === 'store') {
+            sorted.sort((a, b) => {
+                let cmp = a.store.localeCompare(b.store);
+                return sortAscending ? cmp : -cmp;
+            });
+        } else if (currentSort === 'qty') {
+            sorted.sort((a, b) => {
+                let cmp = a.qty - b.qty;
+                return sortAscending ? cmp : -cmp;
+            });
+        } else if (currentSort === 'vehicle') {
+            sorted.sort((a, b) => {
+                let aVehicle = (a.vehicle || '').toString();
+                let bVehicle = (b.vehicle || '').toString();
+                let cmp = aVehicle.localeCompare(bVehicle);
+                return sortAscending ? cmp : -cmp;
+            });
+        }
+
+        sorted.forEach(d => {
+            const item = document.createElement('div');
+            item.className = 'detail-item';
+            item.innerHTML = `
+                <div class="store-name">${d.store}</div>
+                <div class="qty-val">${d.qty}</div>
+                <div class="vehicle-name">${d.vehicle || '-'}</div>
+            `;
+            detailList.appendChild(item);
+        });
+    }
+
+    function updateSortButtons() {
+        const buttons = document.querySelectorAll('.sort-btn');
+        const sortKeys = ['store', 'qty', 'vehicle'];
+        const sortLabels = ['점포명', '수량', '차량'];
+
+        buttons.forEach((btn, idx) => {
+            const isActive = currentSort === sortKeys[idx];
+            btn.classList.toggle('active', isActive);
+
+            if (isActive) {
+                const arrow = sortAscending ? '↑' : '↓';
+                btn.innerText = `${sortLabels[idx]} ${arrow}`;
+            } else {
+                btn.innerText = sortLabels[idx] + ' ↑';
+            }
+        });
     }
 
     function closeModal() {

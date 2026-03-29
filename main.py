@@ -369,7 +369,13 @@ def load_excel_data(region="capital"):
         
         # Filter out 0 or negative quantities
         processed_df = processed_df[processed_df['qty'] > 0]
-        
+
+        # Aggregate by store and product (sum quantities for same store+product combinations)
+        processed_df = processed_df.groupby(['store', 'product'], as_index=False).agg({
+            'qty': 'sum',
+            'vehicle': lambda x: ', '.join(x.dropna().astype(str).unique())  # Combine vehicle info if different
+        })
+
         row_count = len(processed_df)
         print(f"[Load] Processed {row_count} rows for {region}")
         
